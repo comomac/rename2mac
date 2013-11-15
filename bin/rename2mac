@@ -3,7 +3,7 @@
 
 #
 # Rename folderful of filenames to Mac OS X supported format (UTF8-MAC). Mac OS X use only.
-# Mac Ma comomac (at) runbox (dot) com   (c) Copyright 2013
+# Mac Ma  comomac (at) runbox (dot) com   (c) Copyright 2013
 # License MIT
 #
 
@@ -17,13 +17,18 @@ unless RbConfig::CONFIG['host_os'] =~ /darwin/
 	exit
 end
 
-require 'find'
+require 'getoptlong'
 require 'fileutils'
 require 'term/ansicolor'
 
 include Term::ANSIColor
 
 class String
+	# escape [] and {} character for Dir.glob to use
+	def glob_escape
+		self.gsub(/([\[\]\{\}\*\?\\])/, '\\\\\1')
+	end
+
 	def to_m
 		# convert string to UTF8-MAC format
 		self.encode('UTF8-MAC', 'UTF-8')
@@ -85,27 +90,66 @@ def Dir.restricted?( dir, excludes=[] )
     return false
 end
 
-if ARGV.length == 0
-	puts "no dir specified.."
-	exit
-else
-	if ARGV[0] == '-n'
-		# -n argument will show what files/folders will be changed, without making changes
-		noop = true
-		src_dir = File.expand_path(ARGV[1])
-	else
-		noop = false
-		src_dir = File.expand_path(ARGV[0])
-	end
+def show_help
+	puts \
+%Q{Usage:
+rename2mac [arguments] <dir>
 
-	unless FileTest.directory?( src_dir )
-		puts "dir don't exists. #{src_dir}"
+Arguments:
+--noop       -n  Make no changes
+--recursive  -r  Recursively rename
+--force      -f  Force overwrite existing file if it exists
+--quiet      -q  Do not output individual results to screen
+--help       -h  Display current help message}
+end
+
+
+
+opts = GetoptLong.new(
+	[ '--noop',      '-n', GetoptLong::NO_ARGUMENT ],
+	[ '--recursive', '-r', GetoptLong::NO_ARGUMENT ],
+	[ '--force',     '-f', GetoptLong::NO_ARGUMENT ],
+	[ '--quiet',     '-q', GetoptLong::NO_ARGUMENT ],
+	[ '--help',      '-h', GetoptLong::NO_ARGUMENT ]
+)
+
+noop = recursive = force = quiet = false
+
+opts.each do |opt, arg|
+	noop = true		 if opt == '--noop'
+	recursive = true if opt == '--recursive'
+	force = true 	 if opt == '--force'
+	quiet = true	 if opt == '--quiet'
+
+	if opt == '--help'
+		show_help
 		exit
 	end
 end
 
+
+if ARGV.length == 0
+	show_help
+	exit
+else
+	src_dir = File.expand_path(ARGV[0])
+
+	unless FileTest.directory?( src_dir )
+		puts "Dir don't exists. #{src_dir}"
+		exit
+	end
+end
+
+
 total_success = 0 # success rename counter
 total_fail = 0 # fail rename counter
+
+# set wildcard if recursive or not
+if recursive
+	wildcard = '/**/*'
+else
+	wildcard = '/*'
+end
 
 # repeat if discover some success, because new files might be discovered
 total_files = 0
@@ -114,9 +158,9 @@ while flag
 	total_files = 0
 	flag = false
 
-	Find.find( src_dir ) {|fullpath|
-		# skip files and folders that shouldn't be touched
-		Find.prune if Dir.restricted?( fullpath )
+	Dir.glob(File.expand_path(src_dir).glob_escape + wildcard).delete_if { |fullpath|
+		Dir.restricted?( fullpath )
+	}.each { |fullpath|
 		next if fullpath.bn[0..0] == '.'
 
 		total_files += 1
@@ -136,10 +180,10 @@ while flag
 				# rename directory or file
 				begin
 					# tell program to restart the rename from beginning after finish, because some files maybe revealed after rename
-					FileUtils.mv(fullpath, fullpath.dn.to_m + '/' + fullpath.bn.to_m, :noop => noop)
-					fullpath.print_diff
+					FileUtils.mv(fullpath, fullpath.dn.to_m + '/' + fullpath.bn.to_m, :noop => noop, :force => force)
+					fullpath.print_diff unless quiet
 					total_success += 1
-					flag = true
+					flag = true unless noop
 				rescue => e
 					print 'failed:  '
 					fullpath.print_diff
