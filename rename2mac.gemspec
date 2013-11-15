@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'rename2mac'
-  s.version     = '0.9.5'
+  s.version     = '0.9.6'
   s.date        = '2013-11-15'
   s.summary     = "rename2mac"
   s.description = "Rename folderful of filenames to Mac OS X supported format (UTF8-MAC). Mac OS X use only."
