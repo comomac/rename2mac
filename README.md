@@ -19,7 +19,7 @@ rename2mac \[arguments\] \<directory\>
 
 #### Arguments: ####
     --noop       -n  Make no changes
-    --recursive  -r  Recursively rename
+    --local      -l  Scan local directory only, do not scan recursively.
     --force      -f  Force overwrite existing file if it exists
     --quiet      -q  Do not output individual results to screen
     --help       -h  Display current help message
